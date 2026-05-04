@@ -136,14 +136,15 @@ This fork runs opencode's agent engine on top of [CAR](https://github.com/Parsle
 
 - **CAR-routed tool execution** — every built-in opencode tool and every MCP tool flows through `verifyProposal` → `executeProposal` before reaching its host implementation. Plugin hooks, permission gating, snapshots, and bus events are preserved unchanged.
 - **Pre-flight verification** — invalid proposals (unknown tools, malformed actions) are rejected before any side effect.
-- **Graph memory** — each project gets a per-instance memgine that loads from `$XDG_DATA_HOME/opencode/car/<projectID>.json` on startup and persists on shutdown. Completed assistant turns ingest as facts; CAR's spreading-activation retrieval is available via the `findSkill`/`queryFacts` APIs.
+- **Graph memory with persistence** — each project gets a per-instance memgine that loads from `$XDG_DATA_HOME/opencode/car/<projectID>.json` on startup and persists on shutdown. User messages, completed assistant turns, and successful tool calls are all ingested as facts so the graph has real signal across sessions.
+- **CAR-grounded system prompt** — every LLM call appends `rt.buildContext` output for the latest user query as a `<car_context>` block, additive to the existing system prompt and cache-friendly (sits in a non-cached element).
 - **Native skills** — opencode's `SKILL.md` files are auto-ingested into CAR's graph at startup, available for `findSkill` matching.
+- **Inspectable runtime** — `opencode debug car` prints a per-instance state summary (fact count, registered tools, ingested skills, memory path).
 
 **Coming next:**
 
 - DAG-parallel tool execution (batch parallel tool calls into multi-action proposals so CAR's scheduler runs them concurrently with full retry/rollback)
-- Declarative permission policies replacing inline `ctx.ask` calls
-- `rt.buildContext` replacing the flat-transcript system prompt
+- Declarative permission policies replacing inline `ctx.ask` calls (blocked on a CAR upstream change for per-session policy scoping)
 - Multi-agent dispatch via `runSwarm` / `runPipeline`
 
 The opencode TUI, CLI, config, MCP client, LSP, providers, and storage are untouched. The engine is what changes.
