@@ -484,9 +484,14 @@ export const layer: Layer.Layer<
               cost: usage.cost,
             })
             yield* session.updateMessage(ctx.assistantMessage)
+            const factBody = MessageV2.parts(ctx.assistantMessage.id)
+              .filter((p) => p.type === "text")
+              .map((p) => p.text)
+              .join("\n")
+              .trim()
             yield* car.addFact({
               subject: ctx.assistantMessage.id,
-              body: `assistant turn finished: ${value.finishReason}`,
+              body: (factBody || `(no text, finish: ${value.finishReason})`).slice(0, 2000),
               kind: "conversation",
             })
             if (ctx.snapshot) {
