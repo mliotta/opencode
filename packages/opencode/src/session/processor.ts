@@ -402,6 +402,11 @@ export const layer: Layer.Layer<
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
             yield* completeToolCall(value.toolCallId, value.output)
+            yield* car.addFact({
+              subject: value.toolCallId,
+              body: `${value.output.title || toolCall?.part.tool || "tool"}: ${value.output.output.slice(0, 500)}`,
+              kind: "tool_call",
+            })
             return
           }
 
