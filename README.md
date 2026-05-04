@@ -144,8 +144,10 @@ This fork runs opencode's agent engine on top of [CAR](https://github.com/Parsle
 **Coming next:**
 
 - DAG-parallel tool execution (batch parallel tool calls into multi-action proposals so CAR's scheduler runs them concurrently with full retry/rollback)
-- Declarative permission policies replacing inline `ctx.ask` calls (blocked on a CAR upstream change for per-session policy scoping)
+- Tool-parameter validation via CAR's `registerToolSchema` (wired with feature detection; activates automatically when the next `car-runtime` release ships)
 - Multi-agent dispatch via `runSwarm` / `runPipeline`
+
+*(Declarative permission policies are deferred by design: CAR's recommended pattern for session scoping is per-runtime isolation, but opencode benefits more from cross-session memory continuity than from CAR-side permission enforcement. Permissions stay inline via `ctx.ask`.)*
 
 The opencode TUI, CLI, config, MCP client, LSP, providers, and storage are untouched. The engine is what changes.
 
