@@ -434,7 +434,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                   { args },
                 )
                 const result = yield* car.executeAction({
-                  action: { id: options.toolCallId, tool: item.id, parameters: args },
+                  action: {
+                    id: options.toolCallId,
+                    tool: item.id,
+                    parameters: args,
+                    schema: { description: item.description, parameters: schema },
+                  },
                   dispatch: (params) => run.promise(item.execute(params as typeof args, ctx)),
                 })
                 const output = {
@@ -480,7 +485,15 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               const result: Awaited<ReturnType<NonNullable<typeof execute>>> = yield* Effect.gen(function* () {
                 yield* ctx.ask({ permission: key, metadata: {}, patterns: ["*"], always: ["*"] })
                 return yield* car.executeAction({
-                  action: { id: opts.toolCallId, tool: key, parameters: args as Record<string, unknown> },
+                  action: {
+                    id: opts.toolCallId,
+                    tool: key,
+                    parameters: args as Record<string, unknown>,
+                    schema: {
+                      description: item.description ?? "",
+                      parameters: transformed as object,
+                    },
+                  },
                   dispatch: (params) => execute(params as typeof args, opts),
                 })
               }).pipe(

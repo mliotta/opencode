@@ -17,11 +17,18 @@ type State = {
   memoryPath: string
 }
 
+export interface ToolSchemaShape {
+  readonly description: string
+  readonly parameters: object
+  readonly idempotent?: boolean
+}
+
 export interface ExecuteActionInput<T> {
   readonly action: {
     readonly id: string
     readonly tool: string
     readonly parameters: Record<string, unknown>
+    readonly schema?: ToolSchemaShape
   }
   readonly dispatch: (params: Record<string, unknown>) => Promise<T>
 }
@@ -128,19 +135,35 @@ export const layer = Layer.effect(
       }),
     )
 
-    const registerTool = Effect.fn("Car.registerTool")(function* (name: string) {
+    const registerTool = Effect.fn("Car.registerTool")(function* (name: string, schema?: ToolSchemaShape) {
       const s = yield* InstanceState.get(state)
       if (s.registered.has(name)) return
-      yield* Effect.tryPromise({
-        try: () => s.rt.registerTool(name),
-        catch: (e) => new Error(`car: registerTool ${name}: ${String(e)}`),
-      }).pipe(Effect.orDie)
+      const rtAny = s.rt as unknown as {
+        registerToolSchema?: (json: string) => Promise<void>
+      }
+      if (schema && typeof rtAny.registerToolSchema === "function") {
+        const schemaJson = JSON.stringify({
+          name,
+          description: schema.description,
+          parameters: schema.parameters,
+          idempotent: schema.idempotent ?? false,
+        })
+        yield* Effect.tryPromise({
+          try: () => rtAny.registerToolSchema!(schemaJson),
+          catch: (e) => new Error(`car: registerToolSchema ${name}: ${String(e)}`),
+        }).pipe(Effect.orDie)
+      } else {
+        yield* Effect.tryPromise({
+          try: () => s.rt.registerTool(name),
+          catch: (e) => new Error(`car: registerTool ${name}: ${String(e)}`),
+        }).pipe(Effect.orDie)
+      }
       s.registered.add(name)
     })
 
     const executeAction = Effect.fn("Car.executeAction")(function* <T>(input: ExecuteActionInput<T>) {
       const s = yield* InstanceState.get(state)
-      yield* registerTool(input.action.tool)
+      yield* registerTool(input.action.tool, input.action.schema)
 
       const proposalJson = JSON.stringify({
         source: "opencode",
