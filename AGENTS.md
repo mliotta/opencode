@@ -1,3 +1,4 @@
+- This repo is the [Matt Liotta](https://github.com/mliotta) fork of [sst/opencode](https://github.com/sst/opencode), rebuilt on top of [CAR (Common Agent Runtime)](https://github.com/Parslee-ai/car-releases). The TUI, CLI, MCP, LSP, providers, and storage stay; the agent engine (session loop, tool execution, permissions, snapshots, plugins, skills) is replaced by CAR via the in-process `car-runtime` napi bindings. When making engine-level changes, prefer pushing them upstream into CAR rather than working around them here. Preserve opencode's external contracts (CLI flags, config schema, server endpoints the TUI consumes, MCP protocol, plugin API).
 - To regenerate the JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
 - ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE.
 - The default branch in this repo is `dev`.

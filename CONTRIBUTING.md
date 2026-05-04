@@ -1,5 +1,8 @@
 # Contributing to OpenCode
 
+> [!NOTE]
+> This is the [Matt Liotta](https://github.com/mliotta) fork of [sst/opencode](https://github.com/sst/opencode), rebuilt on top of [CAR (Common Agent Runtime)](https://github.com/Parslee-ai/car-releases). Frontend contributions — TUI, CLI, providers, MCP, LSP, docs — are welcome here. Engine-level changes (the agent loop, tool execution, permissions, snapshots, planning) generally belong upstream in [Parslee-ai/car-releases](https://github.com/Parslee-ai/car-releases); CAR is the runtime, this repo is the frontend. If you're not sure where a change fits, open an issue and we'll point you in the right direction.
+
 We want to make it easy for you to contribute to OpenCode. Here are the most common type of changes that get merged:
 
 - Bug fixes

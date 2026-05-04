@@ -43,6 +43,11 @@
 
 ---
 
+> [!NOTE]
+> **This is the [Matt Liotta](https://github.com/mliotta) fork of [opencode](https://github.com/sst/opencode), rebuilt on top of [CAR](https://github.com/Parslee-ai/car-releases) — the Common Agent Runtime.** See the [English README](README.md#powered-by-car) for what changes.
+
+---
+
 ### インストール
 
 ```bash

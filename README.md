@@ -8,6 +8,7 @@
   </a>
 </p>
 <p align="center">The open source AI coding agent.</p>
+<p align="center"><i>A fork of <a href="https://github.com/sst/opencode">opencode</a>, powered by <a href="https://github.com/Parslee-ai/car-releases">CAR</a>.</i></p>
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
@@ -42,6 +43,9 @@
 [![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 ---
+
+> [!NOTE]
+> **This is the [Matt Liotta](https://github.com/mliotta) fork of [opencode](https://github.com/sst/opencode), rebuilt on top of [CAR](https://github.com/Parslee-ai/car-releases) — the Common Agent Runtime.** CAR is a deterministic Rust runtime for AI agents. The opencode TUI, CLI, configuration, MCP, LSP, and provider integrations stay; the agent engine is replaced. See [Powered by CAR](#powered-by-car) for what that brings.
 
 ### Installation
 
@@ -124,7 +128,28 @@ If you're interested in contributing to OpenCode, please read our [contributing 
 
 If you are working on a project that's related to OpenCode and is using "opencode" as part of its name, for example "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
 
+### Powered by CAR
+
+This fork replaces opencode's agent loop with [CAR](https://github.com/Parslee-ai/car-releases) (Common Agent Runtime), embedded in-process via the `car-runtime` napi bindings. CAR is a deterministic execution layer that sits between the model and tools: the model proposes, CAR validates, schedules, and executes.
+
+What that brings to opencode:
+
+- **DAG execution** — independent tool calls run concurrently, not serially, with idempotency, retry, timeout, and rollback handled by the runtime
+- **Verification before execution** — plans are proven satisfiable before any tool fires
+- **Declarative policies** — permission and safety rules live as runtime rules, not in the system prompt
+- **Graph memory** — sessions remember context as a knowledge graph with spreading activation, not a flat transcript
+- **Native skills** — learned procedures registered as first-class runtime primitives
+- **Auditable execution** — every action is logged, replayable, and reversible
+
+The opencode TUI, CLI, config, MCP client, LSP, providers, and storage all stay. The engine is what changes.
+
+[CAR](https://github.com/Parslee-ai/car-releases) · [Matt Liotta](https://github.com/mliotta)
+
 ### FAQ
+
+#### How is this different from upstream opencode?
+
+This fork rebuilds opencode's agent engine on top of [CAR](https://github.com/Parslee-ai/car-releases). The user-facing surface — TUI, CLI, configuration, providers, MCP, LSP — matches upstream so existing setups continue to work. Internally, sessions are scheduled by CAR, which adds DAG-parallel tool execution, declarative permission policies, graph-based memory, snapshots, and replayable execution. See [Powered by CAR](#powered-by-car) for details.
 
 #### How is this different from Claude Code?
 
