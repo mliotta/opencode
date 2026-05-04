@@ -130,18 +130,23 @@ If you are working on a project that's related to OpenCode and is using "opencod
 
 ### Powered by CAR
 
-This fork replaces opencode's agent loop with [CAR](https://github.com/Parslee-ai/car-releases) (Common Agent Runtime), embedded in-process via the `car-runtime` napi bindings. CAR is a deterministic execution layer that sits between the model and tools: the model proposes, CAR validates, schedules, and executes.
+This fork runs opencode's agent engine on top of [CAR](https://github.com/Parslee-ai/car-releases) (Common Agent Runtime), embedded in-process via the `car-runtime` napi bindings. CAR is a deterministic execution layer that sits between the model and tools: the model proposes, CAR validates, schedules, and executes.
 
-What that brings to opencode:
+**Live in this fork today:**
 
-- **DAG execution** — independent tool calls run concurrently, not serially, with idempotency, retry, timeout, and rollback handled by the runtime
-- **Verification before execution** — plans are proven satisfiable before any tool fires
-- **Declarative policies** — permission and safety rules live as runtime rules, not in the system prompt
-- **Graph memory** — sessions remember context as a knowledge graph with spreading activation, not a flat transcript
-- **Native skills** — learned procedures registered as first-class runtime primitives
-- **Auditable execution** — every action is logged, replayable, and reversible
+- **CAR-routed tool execution** — every built-in opencode tool and every MCP tool flows through `verifyProposal` → `executeProposal` before reaching its host implementation. Plugin hooks, permission gating, snapshots, and bus events are preserved unchanged.
+- **Pre-flight verification** — invalid proposals (unknown tools, malformed actions) are rejected before any side effect.
+- **Graph memory** — each project gets a per-instance memgine that loads from `$XDG_DATA_HOME/opencode/car/<projectID>.json` on startup and persists on shutdown. Completed assistant turns ingest as facts; CAR's spreading-activation retrieval is available via the `findSkill`/`queryFacts` APIs.
+- **Native skills** — opencode's `SKILL.md` files are auto-ingested into CAR's graph at startup, available for `findSkill` matching.
 
-The opencode TUI, CLI, config, MCP client, LSP, providers, and storage all stay. The engine is what changes.
+**Coming next:**
+
+- DAG-parallel tool execution (batch parallel tool calls into multi-action proposals so CAR's scheduler runs them concurrently with full retry/rollback)
+- Declarative permission policies replacing inline `ctx.ask` calls
+- `rt.buildContext` replacing the flat-transcript system prompt
+- Multi-agent dispatch via `runSwarm` / `runPipeline`
+
+The opencode TUI, CLI, config, MCP client, LSP, providers, and storage are untouched. The engine is what changes.
 
 [CAR](https://github.com/Parslee-ai/car-releases) · [Matt Liotta](https://github.com/mliotta)
 
