@@ -14,6 +14,7 @@ import { type Tool as AITool, tool, jsonSchema, type ToolExecutionOptions, asSch
 import type { JSONSchema7 } from "@ai-sdk/provider"
 import { SessionCompaction } from "./compaction"
 import { Bus } from "../bus"
+import { Car } from "@/car"
 import { ProviderTransform } from "@/provider/transform"
 import { SystemPrompt } from "./system"
 import { Instruction } from "./instruction"
@@ -93,6 +94,7 @@ export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const bus = yield* Bus.Service
+    const car = yield* Car.Service
     const status = yield* SessionStatus.Service
     const sessions = yield* Session.Service
     const agents = yield* Agent.Service
@@ -431,7 +433,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                   { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID },
                   { args },
                 )
-                const result = yield* item.execute(args, ctx)
+                const result = yield* car.executeAction({
+                  action: { id: options.toolCallId, tool: item.id, parameters: args },
+                  dispatch: (params) => run.promise(item.execute(params as typeof args, ctx)),
+                })
                 const output = {
                   ...result,
                   attachments: result.attachments?.map((attachment) => ({
@@ -474,7 +479,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               )
               const result: Awaited<ReturnType<NonNullable<typeof execute>>> = yield* Effect.gen(function* () {
                 yield* ctx.ask({ permission: key, metadata: {}, patterns: ["*"], always: ["*"] })
-                return yield* Effect.promise(() => execute(args, opts))
+                return yield* car.executeAction({
+                  action: { id: opts.toolCallId, tool: key, parameters: args as Record<string, unknown> },
+                  dispatch: (params) => execute(params as typeof args, opts),
+                })
               }).pipe(
                 Effect.withSpan("Tool.execute", {
                   attributes: {
@@ -1793,6 +1801,7 @@ export const defaultLayer = Layer.suspend(() =>
         SystemPrompt.defaultLayer,
         LLM.defaultLayer,
         Bus.layer,
+        Car.defaultLayer,
         CrossSpawnSpawner.defaultLayer,
       ),
     ),
