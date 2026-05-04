@@ -413,7 +413,7 @@ jobs:
           persist-credentials: false
 
       - name: Run opencode
-        uses: mliotta/opencode/github@latest${envStr}
+        uses: anomalyco/opencode/github@latest${envStr}
         with:
           model: ${provider}/${model}`,
           )
