@@ -73,6 +73,19 @@ export const layer = Layer.effect(
         ],
       })
 
+      const verifyJson = yield* Effect.tryPromise({
+        try: () => s.rt.verifyProposal(proposalJson),
+        catch: (e) => new ExecuteActionError("verify", String(e)),
+      })
+      const verify = JSON.parse(verifyJson) as {
+        valid: boolean
+        issues?: ReadonlyArray<{ message: string }>
+      }
+      if (!verify.valid) {
+        const reasons = verify.issues?.map((i) => i.message).join("; ") ?? "verification failed"
+        return yield* Effect.fail(new ExecuteActionError("invalid", reasons))
+      }
+
       const dispatcher = async (callJson: string): Promise<string> => {
         const parsed = JSON.parse(callJson) as { tool: string; params: Record<string, unknown> }
         if (parsed.tool !== input.action.tool) {
