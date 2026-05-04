@@ -1,6 +1,7 @@
 import { CarRuntime, executeProposal } from "car-runtime"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Option } from "effect"
 import { InstanceState } from "@/effect/instance-state"
+import { Skill } from "@/skill"
 import { Global } from "@opencode-ai/core/global"
 import * as Log from "@opencode-ai/core/util/log"
 import { existsSync } from "node:fs"
@@ -12,6 +13,7 @@ const log = Log.create({ service: "car" })
 type State = {
   rt: CarRuntime
   registered: Set<string>
+  ingestedSkills: Set<string>
   memoryPath: string
 }
 
@@ -39,10 +41,28 @@ export interface FactInput {
   readonly kind: string
 }
 
+export interface SkillInput {
+  readonly name: string
+  readonly code: string
+  readonly description: string
+  readonly platform?: string
+  readonly persona?: string
+  readonly urlPattern?: string
+  readonly taskKeywords?: ReadonlyArray<string>
+}
+
+export interface FindSkillInput {
+  readonly persona: string
+  readonly url: string
+  readonly task: string
+}
+
 export interface Interface {
   readonly executeAction: <T>(input: ExecuteActionInput<T>) => Effect.Effect<T, ExecuteActionError>
   readonly addFact: (input: FactInput) => Effect.Effect<void>
   readonly factCount: () => Effect.Effect<number>
+  readonly ingestSkill: (input: SkillInput) => Effect.Effect<void>
+  readonly findSkill: (input: FindSkillInput) => Effect.Effect<unknown>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Car") {}
@@ -50,16 +70,32 @@ export class Service extends Context.Service<Service, Interface>()("@opencode/Ca
 export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
+    const skillsOpt = yield* Effect.serviceOption(Skill.Service)
+
     const state = yield* InstanceState.make<State>(
       Effect.fn("Car.state")(function* (ctx) {
         log.info("instantiating car-runtime")
         const rt = new CarRuntime()
         const memoryDir = path.join(Global.Path.data, "car")
         const memoryPath = path.join(memoryDir, `${ctx.project.id}.json`)
+        const ingestedSkills = new Set<string>()
 
         if (existsSync(memoryPath)) {
           const count = rt.loadMemory(memoryPath)
           log.info("loaded memory", { count, path: memoryPath })
+        }
+
+        if (Option.isSome(skillsOpt)) {
+          const skills = yield* skillsOpt.value.all().pipe(Effect.orElseSucceed(() => [] as Skill.Info[]))
+          for (const s of skills) {
+            try {
+              rt.ingestSkill(s.name, s.content, "markdown", "", "", [], s.description)
+              ingestedSkills.add(s.name)
+            } catch (e) {
+              log.warn("ingest skill failed", { name: s.name, error: String(e) })
+            }
+          }
+          if (ingestedSkills.size > 0) log.info("ingested skills", { count: ingestedSkills.size })
         }
 
         yield* Effect.addFinalizer(() =>
@@ -73,7 +109,7 @@ export const layer = Layer.effect(
           }).pipe(Effect.ignore),
         )
 
-        return { rt, registered: new Set<string>(), memoryPath }
+        return { rt, registered: new Set<string>(), ingestedSkills, memoryPath }
       }),
     )
 
@@ -160,7 +196,38 @@ export const layer = Layer.effect(
       return s.rt.factCount()
     })
 
-    return Service.of({ executeAction, addFact, factCount })
+    const ingestSkill = Effect.fn("Car.ingestSkill")(function* (input: SkillInput) {
+      const s = yield* InstanceState.get(state)
+      if (s.ingestedSkills.has(input.name)) return
+      yield* Effect.try({
+        try: () =>
+          s.rt.ingestSkill(
+            input.name,
+            input.code,
+            input.platform ?? "markdown",
+            input.persona ?? "",
+            input.urlPattern ?? "",
+            [...(input.taskKeywords ?? [])],
+            input.description,
+          ),
+        catch: (e) => new Error(`car: ingestSkill ${input.name}: ${String(e)}`),
+      }).pipe(Effect.ignore)
+      s.ingestedSkills.add(input.name)
+    })
+
+    const findSkill = Effect.fn("Car.findSkill")(function* (input: FindSkillInput) {
+      const s = yield* InstanceState.get(state)
+      const result = yield* Effect.try({
+        try: () => s.rt.findSkill(input.persona, input.url, input.task),
+        catch: (e) => new Error(`car: findSkill: ${String(e)}`),
+      }).pipe(Effect.option)
+      if (Option.isNone(result)) return null
+      const json = result.value
+      if (!json || json === "null") return null
+      return JSON.parse(json) as unknown
+    })
+
+    return Service.of({ executeAction, addFact, factCount, ingestSkill, findSkill })
   }),
 )
 
