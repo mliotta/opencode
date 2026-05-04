@@ -2,6 +2,7 @@ import { Cause, Deferred, Effect, Layer, Context, Scope } from "effect"
 import * as Stream from "effect/Stream"
 import { Agent } from "@/agent/agent"
 import { Bus } from "@/bus"
+import { Car } from "@/car"
 import { Config } from "@/config/config"
 import { Permission } from "@/permission"
 import { Plugin } from "@/plugin"
@@ -86,6 +87,7 @@ export const layer: Layer.Layer<
   | Session.Service
   | Config.Service
   | Bus.Service
+  | Car.Service
   | Snapshot.Service
   | Agent.Service
   | LLM.Service
@@ -99,6 +101,7 @@ export const layer: Layer.Layer<
     const session = yield* Session.Service
     const config = yield* Config.Service
     const bus = yield* Bus.Service
+    const car = yield* Car.Service
     const snapshot = yield* Snapshot.Service
     const agents = yield* Agent.Service
     const llm = yield* LLM.Service
@@ -481,6 +484,11 @@ export const layer: Layer.Layer<
               cost: usage.cost,
             })
             yield* session.updateMessage(ctx.assistantMessage)
+            yield* car.addFact({
+              subject: ctx.assistantMessage.id,
+              body: `assistant turn finished: ${value.finishReason}`,
+              kind: "conversation",
+            })
             if (ctx.snapshot) {
               const patch = yield* snapshot.patch(ctx.snapshot)
               if (patch.files.length) {
@@ -756,6 +764,7 @@ export const defaultLayer = Layer.suspend(() =>
     Layer.provide(SessionSummary.defaultLayer),
     Layer.provide(SessionStatus.defaultLayer),
     Layer.provide(Bus.layer),
+    Layer.provide(Car.defaultLayer),
     Layer.provide(Config.defaultLayer),
   ),
 )

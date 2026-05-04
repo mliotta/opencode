@@ -1,13 +1,18 @@
 import { CarRuntime, executeProposal } from "car-runtime"
 import { Context, Effect, Layer } from "effect"
 import { InstanceState } from "@/effect/instance-state"
+import { Global } from "@opencode-ai/core/global"
 import * as Log from "@opencode-ai/core/util/log"
+import { existsSync } from "node:fs"
+import { mkdir } from "node:fs/promises"
+import path from "node:path"
 
 const log = Log.create({ service: "car" })
 
 type State = {
   rt: CarRuntime
   registered: Set<string>
+  memoryPath: string
 }
 
 export interface ExecuteActionInput<T> {
@@ -28,8 +33,16 @@ export class ExecuteActionError extends Error {
   }
 }
 
+export interface FactInput {
+  readonly subject: string
+  readonly body: string
+  readonly kind: string
+}
+
 export interface Interface {
   readonly executeAction: <T>(input: ExecuteActionInput<T>) => Effect.Effect<T, ExecuteActionError>
+  readonly addFact: (input: FactInput) => Effect.Effect<void>
+  readonly factCount: () => Effect.Effect<number>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Car") {}
@@ -38,9 +51,29 @@ export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const state = yield* InstanceState.make<State>(
-      Effect.fn("Car.state")(function* () {
+      Effect.fn("Car.state")(function* (ctx) {
         log.info("instantiating car-runtime")
-        return { rt: new CarRuntime(), registered: new Set<string>() }
+        const rt = new CarRuntime()
+        const memoryDir = path.join(Global.Path.data, "car")
+        const memoryPath = path.join(memoryDir, `${ctx.project.id}.json`)
+
+        if (existsSync(memoryPath)) {
+          const count = rt.loadMemory(memoryPath)
+          log.info("loaded memory", { count, path: memoryPath })
+        }
+
+        yield* Effect.addFinalizer(() =>
+          Effect.tryPromise({
+            try: async () => {
+              await mkdir(memoryDir, { recursive: true })
+              rt.persistMemory(memoryPath)
+              log.info("persisted memory", { path: memoryPath })
+            },
+            catch: (e) => new Error(String(e)),
+          }).pipe(Effect.ignore),
+        )
+
+        return { rt, registered: new Set<string>(), memoryPath }
       }),
     )
 
@@ -114,7 +147,20 @@ export const layer = Layer.effect(
       return action.output as T
     })
 
-    return Service.of({ executeAction })
+    const addFact = Effect.fn("Car.addFact")(function* (input: FactInput) {
+      const s = yield* InstanceState.get(state)
+      yield* Effect.try({
+        try: () => s.rt.addFact(input.subject, input.body, input.kind),
+        catch: (e) => new Error(`car: addFact ${input.subject}: ${String(e)}`),
+      }).pipe(Effect.ignore)
+    })
+
+    const factCount = Effect.fn("Car.factCount")(function* () {
+      const s = yield* InstanceState.get(state)
+      return s.rt.factCount()
+    })
+
+    return Service.of({ executeAction, addFact, factCount })
   }),
 )
 
