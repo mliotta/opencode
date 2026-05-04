@@ -1,4 +1,5 @@
 import { Provider } from "@/provider/provider"
+import { Car } from "@/car"
 import * as Log from "@opencode-ai/core/util/log"
 import { Context, Effect, Layer, Record } from "effect"
 import * as Stream from "effect/Stream"
@@ -63,7 +64,7 @@ export class Service extends Context.Service<Service, Interface>()("@opencode/LL
 const live: Layer.Layer<
   Service,
   never,
-  Auth.Service | Config.Service | Provider.Service | Plugin.Service | Permission.Service
+  Auth.Service | Config.Service | Provider.Service | Plugin.Service | Permission.Service | Car.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -72,6 +73,7 @@ const live: Layer.Layer<
     const provider = yield* Provider.Service
     const plugin = yield* Plugin.Service
     const perm = yield* Permission.Service
+    const car = yield* Car.Service
 
     const run = Effect.fn("LLM.run")(function* (input: StreamRequest) {
       const l = log
@@ -113,6 +115,15 @@ const live: Layer.Layer<
           .filter((x) => x)
           .join("\n"),
       )
+
+      const userQuery = latestUserText(input.messages)
+      const carContext = yield* car.buildContext({
+        query: userQuery,
+        modelContextWindow: input.model.limit?.context,
+      })
+      if (carContext.trim()) {
+        system.push(`<car_context>\n${carContext}\n</car_context>`)
+      }
 
       const header = system[0]
       yield* plugin.trigger(
@@ -443,6 +454,7 @@ export const defaultLayer = Layer.suspend(() =>
     Layer.provide(Config.defaultLayer),
     Layer.provide(Provider.defaultLayer),
     Layer.provide(Plugin.defaultLayer),
+    Layer.provide(Car.defaultLayer),
   ),
 )
 
@@ -452,6 +464,19 @@ function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "permission" 
     Permission.merge(input.agent.permission, input.permission ?? []),
   )
   return Record.filter(input.tools, (_, k) => input.user.tools?.[k] !== false && !disabled.has(k))
+}
+
+function latestUserText(messages: ModelMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role !== "user") continue
+    if (typeof m.content === "string") return m.content
+    return m.content
+      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map((p) => p.text)
+      .join("\n")
+  }
+  return ""
 }
 
 // Check if messages contain any tool-call content

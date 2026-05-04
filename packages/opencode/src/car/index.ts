@@ -57,6 +57,11 @@ export interface FindSkillInput {
   readonly task: string
 }
 
+export interface BuildContextInput {
+  readonly query: string
+  readonly modelContextWindow?: number
+}
+
 export interface Summary {
   readonly factCount: number
   readonly registeredTools: ReadonlyArray<string>
@@ -71,6 +76,7 @@ export interface Interface {
   readonly ingestSkill: (input: SkillInput) => Effect.Effect<void>
   readonly findSkill: (input: FindSkillInput) => Effect.Effect<unknown>
   readonly listSkills: (domain?: string) => Effect.Effect<unknown>
+  readonly buildContext: (input: BuildContextInput) => Effect.Effect<string>
   readonly summary: () => Effect.Effect<Summary>
 }
 
@@ -246,6 +252,16 @@ export const layer = Layer.effect(
       return JSON.parse(result.value) as unknown
     })
 
+    const buildContext = Effect.fn("Car.buildContext")(function* (input: BuildContextInput) {
+      const s = yield* InstanceState.get(state)
+      const result = yield* Effect.try({
+        try: () => s.rt.buildContext(input.query, input.modelContextWindow),
+        catch: (e) => new Error(`car: buildContext: ${String(e)}`),
+      }).pipe(Effect.option)
+      if (Option.isNone(result)) return ""
+      return result.value
+    })
+
     const summary = Effect.fn("Car.summary")(function* () {
       const s = yield* InstanceState.get(state)
       return {
@@ -256,7 +272,16 @@ export const layer = Layer.effect(
       } satisfies Summary
     })
 
-    return Service.of({ executeAction, addFact, factCount, ingestSkill, findSkill, listSkills, summary })
+    return Service.of({
+      executeAction,
+      addFact,
+      factCount,
+      ingestSkill,
+      findSkill,
+      listSkills,
+      buildContext,
+      summary,
+    })
   }),
 )
 
