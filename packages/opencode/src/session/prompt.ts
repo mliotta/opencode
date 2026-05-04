@@ -1434,6 +1434,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
           if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
 
+          const userText = MessageV2.parts(lastUser.id)
+            .filter((p) => p.type === "text")
+            .map((p) => p.text)
+            .join("\n")
+            .trim()
+          if (userText) {
+            yield* car.addFact({
+              subject: lastUser.id,
+              body: userText.slice(0, 2000),
+              kind: "request",
+            })
+          }
+
           const lastAssistantMsg = msgs.findLast(
             (msg) => msg.info.role === "assistant" && msg.info.id === lastAssistant?.id,
           )
