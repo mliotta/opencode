@@ -426,6 +426,11 @@ export const layer: Layer.Layer<
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
             yield* failToolCall(value.toolCallId, value.error)
+            yield* car.addFact({
+              subject: value.toolCallId,
+              body: `${toolCall?.part.tool || "tool"} failed: ${errorMessage(value.error).slice(0, 500)}`,
+              kind: "tool_error",
+            })
             return
           }
 
