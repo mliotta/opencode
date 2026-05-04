@@ -57,12 +57,21 @@ export interface FindSkillInput {
   readonly task: string
 }
 
+export interface Summary {
+  readonly factCount: number
+  readonly registeredTools: ReadonlyArray<string>
+  readonly ingestedSkills: ReadonlyArray<string>
+  readonly memoryPath: string
+}
+
 export interface Interface {
   readonly executeAction: <T>(input: ExecuteActionInput<T>) => Effect.Effect<T, ExecuteActionError>
   readonly addFact: (input: FactInput) => Effect.Effect<void>
   readonly factCount: () => Effect.Effect<number>
   readonly ingestSkill: (input: SkillInput) => Effect.Effect<void>
   readonly findSkill: (input: FindSkillInput) => Effect.Effect<unknown>
+  readonly listSkills: (domain?: string) => Effect.Effect<unknown>
+  readonly summary: () => Effect.Effect<Summary>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Car") {}
@@ -227,7 +236,27 @@ export const layer = Layer.effect(
       return JSON.parse(json) as unknown
     })
 
-    return Service.of({ executeAction, addFact, factCount, ingestSkill, findSkill })
+    const listSkills = Effect.fn("Car.listSkills")(function* (domain?: string) {
+      const s = yield* InstanceState.get(state)
+      const result = yield* Effect.try({
+        try: () => s.rt.listSkills(domain),
+        catch: (e) => new Error(`car: listSkills: ${String(e)}`),
+      }).pipe(Effect.option)
+      if (Option.isNone(result)) return []
+      return JSON.parse(result.value) as unknown
+    })
+
+    const summary = Effect.fn("Car.summary")(function* () {
+      const s = yield* InstanceState.get(state)
+      return {
+        factCount: s.rt.factCount(),
+        registeredTools: [...s.registered].sort(),
+        ingestedSkills: [...s.ingestedSkills].sort(),
+        memoryPath: s.memoryPath,
+      } satisfies Summary
+    })
+
+    return Service.of({ executeAction, addFact, factCount, ingestSkill, findSkill, listSkills, summary })
   }),
 )
 
