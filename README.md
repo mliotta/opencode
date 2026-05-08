@@ -49,57 +49,17 @@
 
 ### Installation
 
-```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
-
-# Package managers
-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # Any OS
-nix run nixpkgs#opencode           # or github:mliotta/opencode for latest dev branch
-```
-
-> [!TIP]
-> Remove versions older than 0.1.x before installing.
-
-### Desktop App (BETA)
-
-OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/mliotta/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
-
-| Platform              | Download                              |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm`, or AppImage           |
+This is a personal fork distributed as source. Build it yourself:
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+git clone https://github.com/mliotta/opencode.git
+cd opencode
+bun install                # requires Bun (https://bun.sh)
+bun run dev                # run from source
 ```
 
-#### Installation Directory
-
-The install script respects the following priority order for the installation path:
-
-1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
-2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
-3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
-4. `$HOME/.opencode/bin` - Default fallback
-
-```bash
-# Examples
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
+> [!NOTE]
+> The package-manager commands you may have seen for upstream `opencode` (`curl | bash`, `npm i -g opencode-ai`, `brew install opencode`, `scoop`, `choco`, `pacman`, `mise`, `nixpkgs`) all install [`sst/opencode`](https://github.com/sst/opencode), not this fork. To run this fork's CAR-powered engine, build from source.
 
 ### Agents
 
@@ -139,12 +99,12 @@ This fork runs opencode's agent engine on top of [CAR](https://github.com/Parsle
 - **Graph memory with persistence** — each project gets a per-instance memgine that loads from `$XDG_DATA_HOME/opencode/car/<projectID>.json` on startup and persists on shutdown. User messages, completed assistant turns, and successful tool calls are all ingested as facts so the graph has real signal across sessions.
 - **CAR-grounded system prompt** — every LLM call appends `rt.buildContext` output for the latest user query as a `<car_context>` block, additive to the existing system prompt and cache-friendly (sits in a non-cached element).
 - **Native skills** — opencode's `SKILL.md` files are auto-ingested into CAR's graph at startup, available for `findSkill` matching.
+- **Tool-parameter validation** — every tool registers a JSON Schema via `registerToolSchema`; `verifyProposal` type-checks the model's parameters before dispatch (catches shape mismatches like `{path: 42}` for a `path: string` tool before any side effect).
 - **Inspectable runtime** — `opencode debug car` prints a per-instance state summary (fact count, registered tools, ingested skills, memory path).
 
 **Coming next:**
 
 - DAG-parallel tool execution (batch parallel tool calls into multi-action proposals so CAR's scheduler runs them concurrently with full retry/rollback)
-- Tool-parameter validation via CAR's `registerToolSchema` (wired with feature detection; activates automatically when the next `car-runtime` release ships)
 - Multi-agent dispatch via `runSwarm` / `runPipeline`
 
 *(Declarative permission policies are deferred by design: CAR's recommended pattern for session scoping is per-runtime isolation, but opencode benefits more from cross-session memory continuity than from CAR-side permission enforcement. Permissions stay inline via `ctx.ask`.)*

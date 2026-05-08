@@ -50,57 +50,17 @@
 
 ### Installasjon
 
-```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
-
-# Pakkehåndterere
-npm i -g opencode-ai@latest        # eller bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS og Linux (anbefalt, alltid oppdatert)
-brew install opencode              # macOS og Linux (offisiell brew-formel, oppdateres sjeldnere)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # alle OS
-nix run nixpkgs#opencode           # eller github:mliotta/opencode for nyeste dev-branch
-```
-
-> [!TIP]
-> Fjern versjoner eldre enn 0.1.x før du installerer.
-
-### Desktop-app (BETA)
-
-OpenCode er også tilgjengelig som en desktop-app. Last ned direkte fra [releases-siden](https://github.com/mliotta/opencode/releases) eller [opencode.ai/download](https://opencode.ai/download).
-
-| Plattform             | Nedlasting                            |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm` eller AppImage         |
+This is a personal fork distributed as source. Build it yourself:
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+git clone https://github.com/mliotta/opencode.git
+cd opencode
+bun install                # requires Bun (https://bun.sh)
+bun run dev                # run from source
 ```
 
-#### Installasjonsmappe
-
-Installasjonsskriptet bruker følgende prioritet for installasjonsstien:
-
-1. `$OPENCODE_INSTALL_DIR` - Egendefinert installasjonsmappe
-2. `$XDG_BIN_DIR` - Sti som følger XDG Base Directory Specification
-3. `$HOME/bin` - Standard brukerbinar-mappe (hvis den finnes eller kan opprettes)
-4. `$HOME/.opencode/bin` - Standard fallback
-
-```bash
-# Eksempler
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
+> [!NOTE]
+> The package-manager commands you may have seen for upstream `opencode` (`curl | bash`, `npm i -g opencode-ai`, `brew install opencode`, `scoop`, `choco`, `pacman`, `mise`, `nixpkgs`) all install [`sst/opencode`](https://github.com/sst/opencode), not this fork. To run this fork's CAR-powered engine, build from source.
 
 ### Agents
 

@@ -50,57 +50,17 @@
 
 ### Cài đặt
 
-```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
-
-# Các trình quản lý gói (Package managers)
-npm i -g opencode-ai@latest        # hoặc bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS và Linux (khuyên dùng, luôn cập nhật)
-brew install opencode              # macOS và Linux (công thức brew chính thức, ít cập nhật hơn)
-sudo pacman -S opencode            # Arch Linux (Bản ổn định)
-paru -S opencode-bin               # Arch Linux (Bản mới nhất từ AUR)
-mise use -g opencode               # Mọi hệ điều hành
-nix run nixpkgs#opencode           # hoặc github:mliotta/opencode cho nhánh dev mới nhất
-```
-
-> [!TIP]
-> Hãy xóa các phiên bản cũ hơn 0.1.x trước khi cài đặt.
-
-### Ứng dụng Desktop (BETA)
-
-OpenCode cũng có sẵn dưới dạng ứng dụng desktop. Tải trực tiếp từ [trang releases](https://github.com/mliotta/opencode/releases) hoặc [opencode.ai/download](https://opencode.ai/download).
-
-| Nền tảng              | Tải xuống                             |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm`, hoặc AppImage         |
+This is a personal fork distributed as source. Build it yourself:
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+git clone https://github.com/mliotta/opencode.git
+cd opencode
+bun install                # requires Bun (https://bun.sh)
+bun run dev                # run from source
 ```
 
-#### Thư mục cài đặt
-
-Tập lệnh cài đặt tuân theo thứ tự ưu tiên sau cho đường dẫn cài đặt:
-
-1. `$OPENCODE_INSTALL_DIR` - Thư mục cài đặt tùy chỉnh
-2. `$XDG_BIN_DIR` - Đường dẫn tuân thủ XDG Base Directory Specification
-3. `$HOME/bin` - Thư mục nhị phân tiêu chuẩn của người dùng (nếu tồn tại hoặc có thể tạo)
-4. `$HOME/.opencode/bin` - Mặc định dự phòng
-
-```bash
-# Ví dụ
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
+> [!NOTE]
+> The package-manager commands you may have seen for upstream `opencode` (`curl | bash`, `npm i -g opencode-ai`, `brew install opencode`, `scoop`, `choco`, `pacman`, `mise`, `nixpkgs`) all install [`sst/opencode`](https://github.com/sst/opencode), not this fork. To run this fork's CAR-powered engine, build from source.
 
 ### Agents (Đại diện)
 

@@ -50,57 +50,17 @@
 
 ### Instalacja
 
-```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
-
-# Menedżery pakietów
-npm i -g opencode-ai@latest        # albo bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS i Linux (polecane, zawsze aktualne)
-brew install opencode              # macOS i Linux (oficjalna formuła brew, rzadziej aktualizowana)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # dowolny system
-nix run nixpkgs#opencode           # lub github:mliotta/opencode dla najnowszej gałęzi dev
-```
-
-> [!TIP]
-> Przed instalacją usuń wersje starsze niż 0.1.x.
-
-### Aplikacja desktopowa (BETA)
-
-OpenCode jest także dostępny jako aplikacja desktopowa. Pobierz ją bezpośrednio ze strony [releases](https://github.com/mliotta/opencode/releases) lub z [opencode.ai/download](https://opencode.ai/download).
-
-| Platforma             | Pobieranie                            |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm` lub AppImage           |
+This is a personal fork distributed as source. Build it yourself:
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+git clone https://github.com/mliotta/opencode.git
+cd opencode
+bun install                # requires Bun (https://bun.sh)
+bun run dev                # run from source
 ```
 
-#### Katalog instalacji
-
-Skrypt instalacyjny stosuje następujący priorytet wyboru ścieżki instalacji:
-
-1. `$OPENCODE_INSTALL_DIR` - Własny katalog instalacji
-2. `$XDG_BIN_DIR` - Ścieżka zgodna ze specyfikacją XDG Base Directory
-3. `$HOME/bin` - Standardowy katalog binarny użytkownika (jeśli istnieje lub można go utworzyć)
-4. `$HOME/.opencode/bin` - Domyślny fallback
-
-```bash
-# Przykłady
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
+> [!NOTE]
+> The package-manager commands you may have seen for upstream `opencode` (`curl | bash`, `npm i -g opencode-ai`, `brew install opencode`, `scoop`, `choco`, `pacman`, `mise`, `nixpkgs`) all install [`sst/opencode`](https://github.com/sst/opencode), not this fork. To run this fork's CAR-powered engine, build from source.
 
 ### Agents
 

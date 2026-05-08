@@ -97,6 +97,9 @@ export const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(
       Effect.fn("Car.state")(function* (ctx) {
         log.info("instantiating car-runtime")
+        // Embedded mode: skip the daemon probe car-runtime 0.6+ runs at construction.
+        // opencode is a single-process CLI; daemon mode is for multi-consumer setups.
+        process.env["CAR_FFI_MODE"] ??= "embedded"
         const rt = new CarRuntime()
         const memoryDir = path.join(Global.Path.data, "car")
         const memoryPath = path.join(memoryDir, `${ctx.project.id}.json`)
@@ -110,12 +113,19 @@ export const layer = Layer.effect(
         if (Option.isSome(skillsOpt)) {
           const skills = yield* skillsOpt.value.all().pipe(Effect.orElseSucceed(() => [] as Skill.Info[]))
           for (const s of skills) {
-            try {
-              rt.ingestSkill(s.name, s.content, "markdown", "", "", [], s.description)
-              ingestedSkills.add(s.name)
-            } catch (e) {
-              log.warn("ingest skill failed", { name: s.name, error: String(e) })
-            }
+            const ok = yield* Effect.tryPromise({
+              try: () => rt.ingestSkill(s.name, s.content, "markdown", "", "", [], s.description),
+              catch: (e) => new Error(String(e)),
+            }).pipe(
+              Effect.match({
+                onSuccess: () => true,
+                onFailure: (e) => {
+                  log.warn("ingest skill failed", { name: s.name, error: String(e) })
+                  return false
+                },
+              }),
+            )
+            if (ok) ingestedSkills.add(s.name)
           }
           if (ingestedSkills.size > 0) log.info("ingested skills", { count: ingestedSkills.size })
         }
@@ -138,10 +148,7 @@ export const layer = Layer.effect(
     const registerTool = Effect.fn("Car.registerTool")(function* (name: string, schema?: ToolSchemaShape) {
       const s = yield* InstanceState.get(state)
       if (s.registered.has(name)) return
-      const rtAny = s.rt as unknown as {
-        registerToolSchema?: (json: string) => Promise<void>
-      }
-      if (schema && typeof rtAny.registerToolSchema === "function") {
+      if (schema) {
         const schemaJson = JSON.stringify({
           name,
           description: schema.description,
@@ -149,7 +156,7 @@ export const layer = Layer.effect(
           idempotent: schema.idempotent ?? false,
         })
         yield* Effect.tryPromise({
-          try: () => rtAny.registerToolSchema!(schemaJson),
+          try: () => s.rt.registerToolSchema(schemaJson),
           catch: (e) => new Error(`car: registerToolSchema ${name}: ${String(e)}`),
         }).pipe(Effect.orDie)
       } else {
@@ -223,7 +230,7 @@ export const layer = Layer.effect(
 
     const addFact = Effect.fn("Car.addFact")(function* (input: FactInput) {
       const s = yield* InstanceState.get(state)
-      yield* Effect.try({
+      yield* Effect.tryPromise({
         try: () => s.rt.addFact(input.subject, input.body, input.kind),
         catch: (e) => new Error(`car: addFact ${input.subject}: ${String(e)}`),
       }).pipe(Effect.ignore)
@@ -231,13 +238,16 @@ export const layer = Layer.effect(
 
     const factCount = Effect.fn("Car.factCount")(function* () {
       const s = yield* InstanceState.get(state)
-      return s.rt.factCount()
+      return yield* Effect.tryPromise({
+        try: () => s.rt.factCount(),
+        catch: (e) => new Error(`car: factCount: ${String(e)}`),
+      }).pipe(Effect.orElseSucceed(() => 0))
     })
 
     const ingestSkill = Effect.fn("Car.ingestSkill")(function* (input: SkillInput) {
       const s = yield* InstanceState.get(state)
       if (s.ingestedSkills.has(input.name)) return
-      yield* Effect.try({
+      yield* Effect.tryPromise({
         try: () =>
           s.rt.ingestSkill(
             input.name,
@@ -277,7 +287,7 @@ export const layer = Layer.effect(
 
     const buildContext = Effect.fn("Car.buildContext")(function* (input: BuildContextInput) {
       const s = yield* InstanceState.get(state)
-      const result = yield* Effect.try({
+      const result = yield* Effect.tryPromise({
         try: () => s.rt.buildContext(input.query, input.modelContextWindow),
         catch: (e) => new Error(`car: buildContext: ${String(e)}`),
       }).pipe(Effect.option)
@@ -287,8 +297,12 @@ export const layer = Layer.effect(
 
     const summary = Effect.fn("Car.summary")(function* () {
       const s = yield* InstanceState.get(state)
+      const count = yield* Effect.tryPromise({
+        try: () => s.rt.factCount(),
+        catch: (e) => new Error(`car: summary factCount: ${String(e)}`),
+      }).pipe(Effect.orElseSucceed(() => 0))
       return {
-        factCount: s.rt.factCount(),
+        factCount: count,
         registeredTools: [...s.registered].sort(),
         ingestedSkills: [...s.ingestedSkills].sort(),
         memoryPath: s.memoryPath,
