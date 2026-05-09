@@ -7,6 +7,8 @@ import * as Log from "@opencode-ai/core/util/log"
 import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import path from "node:path"
+import { runInference, type InferenceResult } from "./inference-bridge"
+import type { streamText } from "ai"
 
 const log = Log.create({ service: "car" })
 
@@ -84,6 +86,7 @@ export interface Interface {
   readonly findSkill: (input: FindSkillInput) => Effect.Effect<unknown>
   readonly listSkills: (domain?: string) => Effect.Effect<unknown>
   readonly buildContext: (input: BuildContextInput) => Effect.Effect<string>
+  readonly runInference: (params: Parameters<typeof streamText>[0]) => Effect.Effect<InferenceResult>
   readonly summary: () => Effect.Effect<Summary>
 }
 
@@ -295,6 +298,11 @@ export const layer = Layer.effect(
       return result.value
     })
 
+    const runInferenceEff = Effect.fn("Car.runInference")(function* (params: Parameters<typeof streamText>[0]) {
+      const s = yield* InstanceState.get(state)
+      return runInference(s.rt, params)
+    })
+
     const summary = Effect.fn("Car.summary")(function* () {
       const s = yield* InstanceState.get(state)
       const count = yield* Effect.tryPromise({
@@ -317,6 +325,7 @@ export const layer = Layer.effect(
       findSkill,
       listSkills,
       buildContext,
+      runInference: runInferenceEff,
       summary,
     })
   }),

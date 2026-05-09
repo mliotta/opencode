@@ -344,7 +344,7 @@ const live: Layer.Layer<
         ? (yield* InstanceState.context).project.id
         : undefined
 
-      return streamText({
+      return yield* car.runInference({
         onError(error) {
           l.error("stream error", {
             error,

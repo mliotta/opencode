@@ -100,11 +100,11 @@ This fork runs opencode's agent engine on top of [CAR](https://github.com/Parsle
 - **CAR-grounded system prompt** — every LLM call appends `rt.buildContext` output for the latest user query as a `<car_context>` block, additive to the existing system prompt and cache-friendly (sits in a non-cached element).
 - **Native skills** — opencode's `SKILL.md` files are auto-ingested into CAR's graph at startup, available for `findSkill` matching.
 - **Tool-parameter validation** — every tool registers a JSON Schema via `registerToolSchema`; `verifyProposal` type-checks the model's parameters before dispatch (catches shape mismatches like `{path: 42}` for a `path: string` tool before any side effect).
+- **CAR-mediated inference** — every model call routes through `inferStream` against a `ModelSource::Delegated` model and back into a registered `InferenceRunner` ([v0.7.0](https://github.com/Parslee-ai/car-releases/releases/tag/v0.7.0), closes [Parslee-ai/car-releases#24](https://github.com/Parslee-ai/car-releases/issues/24)). opencode's AI-SDK provider stack stays as the wire (Anthropic, OpenAI, Google, GitLab Workflow, opencode-zen — all unchanged); CAR sits in the lifecycle path. A JS side-channel keyed by `callId` carries the rich AI-SDK chunks back to the TUI without lossy translation; CAR receives a parallel stream of `text` / `tool_start` / `usage` events for replay, policy, and fact ingestion.
 - **Inspectable runtime** — `opencode debug car` prints a per-instance state summary (fact count, registered tools, ingested skills, memory path).
 
 **Coming next:**
 
-- Route inference through CAR via `registerInferenceRunner` (CAR shipped the host-runner contract in [v0.7.0](https://github.com/Parslee-ai/car-releases/releases/tag/v0.7.0) closing [Parslee-ai/car-releases#24](https://github.com/Parslee-ai/car-releases/issues/24); opencode keeps its AI-SDK provider stack as the wire and CAR sits in the lifecycle path observing every event for replay / policy / fact ingestion)
 - DAG-parallel tool execution (batch parallel tool calls into multi-action proposals so CAR's scheduler runs them concurrently with full retry/rollback)
 - Multi-agent dispatch via `runSwarm` / `runPipeline`
 
