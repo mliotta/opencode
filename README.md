@@ -104,6 +104,7 @@ This fork runs opencode's agent engine on top of [CAR](https://github.com/Parsle
 
 **Coming next:**
 
+- Route inference through CAR via `registerInferenceRunner` (CAR shipped the host-runner contract in [v0.7.0](https://github.com/Parslee-ai/car-releases/releases/tag/v0.7.0) closing [Parslee-ai/car-releases#24](https://github.com/Parslee-ai/car-releases/issues/24); opencode keeps its AI-SDK provider stack as the wire and CAR sits in the lifecycle path observing every event for replay / policy / fact ingestion)
 - DAG-parallel tool execution (batch parallel tool calls into multi-action proposals so CAR's scheduler runs them concurrently with full retry/rollback)
 - Multi-agent dispatch via `runSwarm` / `runPipeline`
 
