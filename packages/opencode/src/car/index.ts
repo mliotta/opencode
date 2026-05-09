@@ -1,3 +1,4 @@
+import "./env"
 import { CarRuntime, executeProposal } from "car-runtime"
 import { Context, Effect, Layer, Option } from "effect"
 import { InstanceState } from "@/effect/instance-state"
@@ -100,9 +101,6 @@ export const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(
       Effect.fn("Car.state")(function* (ctx) {
         log.info("instantiating car-runtime")
-        // Embedded mode: skip the daemon probe car-runtime 0.6+ runs at construction.
-        // opencode is a single-process CLI; daemon mode is for multi-consumer setups.
-        process.env["CAR_FFI_MODE"] ??= "embedded"
         const rt = new CarRuntime()
         const memoryDir = path.join(Global.Path.data, "car")
         const memoryPath = path.join(memoryDir, `${ctx.project.id}.json`)

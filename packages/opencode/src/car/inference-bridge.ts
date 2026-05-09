@@ -1,3 +1,4 @@
+import "./env"
 import {
   type CarRuntime,
   inferStream,
@@ -86,10 +87,26 @@ function emitSafe(carCallId: string, eventJson: string): void {
   }
 }
 
+function unpackRunnerArgs(args: unknown[]): readonly [string, string] {
+  // napi declares `(requestJson, callId)` but bun packs the two args into a
+  // single array (`[requestJson, callId]`). Node passes them separately. Handle
+  // both forms so this stays portable across runtimes.
+  const first = args[0]
+  if (Array.isArray(first) && first.length >= 2) {
+    return [first[0] as string, first[1] as string] as const
+  }
+  return [first as string, args[1] as string] as const
+}
+
 function ensureRunner(): void {
   if (runnerRegistered) return
   runnerRegistered = true
-  registerInferenceRunner(async (requestJson: string, carCallId: string) => {
+  // Type-cast to `(...args) => Promise<string>` because bun's napi binding
+  // calls the runner with one array-arg instead of the two declared in the
+  // d.ts. Unpacking is handled inside.
+  type RunnerFn = Parameters<typeof registerInferenceRunner>[0]
+  const runner: RunnerFn = (async (...args: unknown[]) => {
+    const [requestJson, carCallId] = unpackRunnerArgs(args)
     const req = JSON.parse(requestJson) as { _opencode_call_id?: string }
     const ourCallId = req._opencode_call_id
     if (!ourCallId) throw new Error("car inference runner: missing _opencode_call_id in request")
@@ -166,7 +183,8 @@ function ensureRunner(): void {
     }
 
     return JSON.stringify({ text: aggregatedText, tool_calls: aggregatedToolCalls })
-  })
+  }) as RunnerFn
+  registerInferenceRunner(runner)
 }
 
 const modelRegisteredFor = new WeakSet<CarRuntime>()
@@ -180,8 +198,10 @@ function ensureModelRegistered(rt: CarRuntime): void {
         id: DELEGATED_MODEL_ID,
         name: "opencode delegated",
         provider: "opencode",
-        source: { type: "delegated", hint: null },
+        family: "opencode",
         capabilities: ["generate", "tool_use"],
+        source: { type: "delegated" },
+        context_length: 0,
       }),
     )
   } catch (e) {
