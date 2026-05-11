@@ -1,3 +1,7 @@
+// v0.8-migration: `executeProposal` (used by `executeAction` below) is retired
+// in car-runtime 0.8.0+. The replacement is daemon WS `proposal.submit` + a
+// `tools.execute` handler. `env.ts` (CAR_FFI_MODE=embedded) is tombstoned.
+// See packages/opencode/specs/car/v0.8-migration.md.
 import "./env"
 import { CarRuntime, executeProposal } from "car-runtime"
 import { Context, Effect, Layer, Option } from "effect"

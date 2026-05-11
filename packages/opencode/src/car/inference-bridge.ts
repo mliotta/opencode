@@ -1,3 +1,8 @@
+// v0.8-migration: every FFI symbol imported below (`inferStream`,
+// `inferenceRunnerEmitEvent`, `registerInferenceRunner`) is retired in
+// car-runtime 0.8.0+. The d.ts still declares them but the napi shims throw
+// "not exposed in v0.8". See packages/opencode/specs/car/v0.8-migration.md
+// for the WS-based replacement path.
 import "./env"
 import {
   type CarRuntime,
