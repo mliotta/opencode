@@ -5,13 +5,6 @@ const fs = require("fs")
 const path = require("path")
 const os = require("os")
 
-// Skip the napi binding's daemon-mode probe at `new CarRuntime()`. opencode is
-// a single-process CLI; daemon mode is for multi-consumer setups. Setting the
-// env var here (before spawn) is the only place it reliably reaches the napi
-// binding's C `environ` read — JS-side process.env mutations in bun do not
-// propagate to napi.
-if (!process.env.CAR_FFI_MODE) process.env.CAR_FFI_MODE = "embedded"
-
 function run(target) {
   const result = childProcess.spawnSync(target, process.argv.slice(2), {
     stdio: "inherit",

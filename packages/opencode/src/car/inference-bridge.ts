@@ -1,22 +1,14 @@
-// v0.8-migration: every FFI symbol imported below (`inferStream`,
-// `inferenceRunnerEmitEvent`, `registerInferenceRunner`) is retired in
-// car-runtime 0.8.0+. The d.ts still declares them but the napi shims throw
-// "not exposed in v0.8". See packages/opencode/specs/car/v0.8-migration.md
-// for the WS-based replacement path.
-import "./env"
 import {
   type CarRuntime,
-  inferStream,
   inferenceRunnerEmitEvent,
   registerInferenceRunner,
 } from "car-runtime"
 import { streamText } from "ai"
 import { randomUUID } from "node:crypto"
 import * as Log from "@opencode-ai/core/util/log"
+import { DELEGATED_MODEL_ID } from "./daemon"
 
 const log = Log.create({ service: "car.inference" })
-
-const DELEGATED_MODEL_ID = "opencode-delegated"
 
 type StreamTextParams = Parameters<typeof streamText>[0]
 type StreamTextResult = ReturnType<typeof streamText>
@@ -28,6 +20,12 @@ interface BridgeContext {
   readonly queue: AsyncQueue<Chunk>
 }
 
+// v0.8+ daemon: the JS-side `inferenceRunnerEmitEvent` shim does not
+// surface the WS-level `call_id` to the runner via the requestJson —
+// `GenerateRequest` is a typed Rust struct, so unknown fields get
+// dropped on serde round-trip. We smuggle our correlation id via the
+// `prompt` field, which delegated models ignore for prompt
+// construction (the runner uses `ctx.params` for `streamText`).
 const bridge = new Map<string, BridgeContext>()
 
 class AsyncQueue<T> {
@@ -106,15 +104,12 @@ function unpackRunnerArgs(args: unknown[]): readonly [string, string] {
 function ensureRunner(): void {
   if (runnerRegistered) return
   runnerRegistered = true
-  // Type-cast to `(...args) => Promise<string>` because bun's napi binding
-  // calls the runner with one array-arg instead of the two declared in the
-  // d.ts. Unpacking is handled inside.
   type RunnerFn = Parameters<typeof registerInferenceRunner>[0]
   const runner: RunnerFn = (async (...args: unknown[]) => {
     const [requestJson, carCallId] = unpackRunnerArgs(args)
-    const req = JSON.parse(requestJson) as { _opencode_call_id?: string }
-    const ourCallId = req._opencode_call_id
-    if (!ourCallId) throw new Error("car inference runner: missing _opencode_call_id in request")
+    const req = JSON.parse(requestJson) as { prompt?: string }
+    const ourCallId = req.prompt
+    if (!ourCallId) throw new Error("car inference runner: missing correlation id in request.prompt")
     const ctx = bridge.get(ourCallId)
     if (!ctx) throw new Error(`car inference runner: no bridge context for ${ourCallId}`)
 
@@ -192,47 +187,33 @@ function ensureRunner(): void {
   registerInferenceRunner(runner)
 }
 
-const modelRegisteredFor = new WeakSet<CarRuntime>()
-
-function ensureModelRegistered(rt: CarRuntime): void {
-  if (modelRegisteredFor.has(rt)) return
-  modelRegisteredFor.add(rt)
-  try {
-    rt.registerModel(
-      JSON.stringify({
-        id: DELEGATED_MODEL_ID,
-        name: "opencode delegated",
-        provider: "opencode",
-        family: "opencode",
-        capabilities: ["generate", "tool_use"],
-        source: { type: "delegated" },
-        context_length: 0,
-      }),
-    )
-  } catch (e) {
-    log.warn("registerModel failed; inferStream may reject", { error: String(e) })
-  }
-}
-
 export interface InferenceResult {
   readonly fullStream: AsyncIterable<Chunk>
 }
 
 export function runInference(rt: CarRuntime, params: StreamTextParams): InferenceResult {
   ensureRunner()
-  ensureModelRegistered(rt)
 
+  // The delegated model is persisted in ~/.car/models.json by
+  // `daemon.ensureCarServer()` before the daemon starts, so the
+  // daemon's `UnifiedRegistry::load_user_config` picks it up at
+  // boot. We do NOT call `rt.registerModel` here — that endpoint
+  // only writes the file (phase 1 limitation per
+  // car-server-core/handler.rs); we'd duplicate the write and
+  // still rely on daemon-boot visibility. If a daemon is already
+  // running with a stale `models.json` snapshot, the first
+  // inference call will fail with "model not found" and the user
+  // needs to restart the daemon.
   const callId = randomUUID()
   const queue = new AsyncQueue<Chunk>()
   bridge.set(callId, { params, queue })
 
   const requestJson = JSON.stringify({
     model: DELEGATED_MODEL_ID,
-    prompt: "",
-    _opencode_call_id: callId,
+    prompt: callId,
   })
 
-  inferStream(rt, requestJson, () => {})
+  rt.inferTrackedWithRequest(requestJson)
     .catch((e) => queue.error(e))
     .finally(() => bridge.delete(callId))
 

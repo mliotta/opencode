@@ -1,9 +1,4 @@
-// v0.8-migration: `executeProposal` (used by `executeAction` below) is retired
-// in car-runtime 0.8.0+. The replacement is daemon WS `proposal.submit` + a
-// `tools.execute` handler. `env.ts` (CAR_FFI_MODE=embedded) is tombstoned.
-// See packages/opencode/specs/car/v0.8-migration.md.
-import "./env"
-import { CarRuntime, executeProposal } from "car-runtime"
+import { CarRuntime, registerToolHandler } from "car-runtime"
 import { Context, Effect, Layer, Option } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { Skill } from "@/skill"
@@ -12,6 +7,7 @@ import * as Log from "@opencode-ai/core/util/log"
 import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import path from "node:path"
+import { ensureCarServer } from "./daemon"
 import { runInference, type InferenceResult } from "./inference-bridge"
 import type { streamText } from "ai"
 
@@ -97,6 +93,49 @@ export interface Interface {
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Car") {}
 
+// Process-wide `tools.execute` handler. v0.9 exposes a single global slot via
+// `registerToolHandler`; the daemon's `action_id` is carried through to the
+// JS callback (car-releases#43), so we route concurrent same-tool calls by
+// their unique action id straight off the payload.
+const dispatchers = new Map<string, (params: Record<string, unknown>) => Promise<unknown>>()
+let toolHandlerInstalled = false
+
+function ensureToolHandler(): void {
+  if (toolHandlerInstalled) return
+  toolHandlerInstalled = true
+  registerToolHandler(async (callJson: string): Promise<string> => {
+    const parsed = JSON.parse(callJson) as {
+      tool: string
+      params: Record<string, unknown>
+      action_id?: string
+    }
+    const actionId = parsed.action_id ?? ""
+    if (!actionId) {
+      throw new Error(
+        `car: tools.execute payload missing action_id for tool ${parsed.tool} — ` +
+          "host needs car-runtime built with car-releases#43.",
+      )
+    }
+    const fn = dispatchers.get(actionId)
+    if (!fn) throw new Error(`car: no dispatcher for action ${actionId} (tool ${parsed.tool})`)
+    const result = await fn(parsed.params)
+    return JSON.stringify(result)
+  })
+}
+
+async function withDispatcher<T>(
+  actionId: string,
+  dispatch: (params: Record<string, unknown>) => Promise<unknown>,
+  run: () => Promise<T>,
+): Promise<T> {
+  dispatchers.set(actionId, dispatch)
+  try {
+    return await run()
+  } finally {
+    dispatchers.delete(actionId)
+  }
+}
+
 export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -105,13 +144,21 @@ export const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(
       Effect.fn("Car.state")(function* (ctx) {
         log.info("instantiating car-runtime")
+        yield* Effect.tryPromise({
+          try: () => ensureCarServer(),
+          catch: (e) => new Error(`car: ensureCarServer: ${String(e)}`),
+        }).pipe(Effect.orDie)
         const rt = new CarRuntime()
+        ensureToolHandler()
         const memoryDir = path.join(Global.Path.data, "car")
         const memoryPath = path.join(memoryDir, `${ctx.project.id}.json`)
         const ingestedSkills = new Set<string>()
 
         if (existsSync(memoryPath)) {
-          const count = rt.loadMemory(memoryPath)
+          const count = yield* Effect.tryPromise({
+            try: () => rt.loadMemory(memoryPath),
+            catch: (e) => new Error(`car: loadMemory: ${String(e)}`),
+          }).pipe(Effect.orElseSucceed(() => 0))
           log.info("loaded memory", { count, path: memoryPath })
         }
 
@@ -205,17 +252,13 @@ export const layer = Layer.effect(
         return yield* Effect.fail(new ExecuteActionError("invalid", reasons))
       }
 
-      const dispatcher = async (callJson: string): Promise<string> => {
-        const parsed = JSON.parse(callJson) as { tool: string; params: Record<string, unknown> }
-        if (parsed.tool !== input.action.tool) {
-          throw new Error(`car-dispatcher: unexpected tool ${parsed.tool}`)
-        }
-        const result = await input.dispatch(parsed.params)
-        return JSON.stringify(result)
-      }
-
       const resultJson = yield* Effect.tryPromise({
-        try: () => executeProposal(s.rt, proposalJson, dispatcher),
+        try: () =>
+          withDispatcher(
+            input.action.id,
+            (params) => input.dispatch(params) as Promise<unknown>,
+            () => s.rt.submitProposal(proposalJson),
+          ),
         catch: (e) => new ExecuteActionError("error", String(e)),
       })
 
