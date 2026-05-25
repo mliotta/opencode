@@ -9,6 +9,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import * as Log from "@opencode-ai/core/util/log"
 import { makeRuntime } from "@opencode-ai/core/effect/runtime"
+import { serviceUse } from "@opencode-ai/core/effect/service-use"
 import semver from "semver"
 import { InstallationChannel, InstallationVersion } from "@opencode-ai/core/installation/version"
 import { NpmConfig } from "@opencode-ai/core/npm-config"
@@ -89,6 +90,8 @@ export interface Interface {
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Installation") {}
+
+export const use = serviceUse(Service)
 
 export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildProcessSpawner.ChildProcessSpawner> =
   Layer.effect(

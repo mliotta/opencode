@@ -166,7 +166,7 @@ export const layer = Layer.effect(
           const skills = yield* skillsOpt.value.all().pipe(Effect.orElseSucceed(() => [] as Skill.Info[]))
           for (const s of skills) {
             const ok = yield* Effect.tryPromise({
-              try: () => rt.ingestSkill(s.name, s.content, "markdown", "", "", [], s.description),
+              try: () => rt.ingestSkill(s.name, s.content, "markdown", "", "", [], s.description ?? ""),
               catch: (e) => new Error(String(e)),
             }).pipe(
               Effect.match({
